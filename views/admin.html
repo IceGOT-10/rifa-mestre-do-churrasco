@@ -504,10 +504,10 @@
         const j = await r.json();
         offset = j.agora - Date.now();
         encerrada = Boolean(j.encerrada);
-        rifaPublicaId = j.rifaPublicaId || j.rifaId;
+        rifaPublicaId = j.rifaPublicaId !== undefined ? j.rifaPublicaId : j.rifaId;
         rifaVisualizadaId = j.rifaId;
         estadoRifa = {
-          rifaId: j.rifaId || 1,
+          rifaId: j.rifaId !== undefined ? j.rifaId : 0,
           naTelaDoUsuario: Boolean(j.naTelaDoUsuario),
           titulo: j.titulo || '',
           valor: j.valor || 'R$ 5,00',

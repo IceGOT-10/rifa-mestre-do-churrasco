@@ -427,7 +427,7 @@ function obterConfig(db) {
   const valor = mapa.valor || 'R$ 5,00';
   const rifaAtiva = db.prepare('SELECT id FROM rifas WHERE ativa = 1 ORDER BY id DESC LIMIT 1').get();
   return {
-    rifaId: rifaAtiva ? rifaAtiva.id : 1,
+    rifaId: rifaAtiva !== undefined && rifaAtiva !== null ? rifaAtiva.id : 0,
     marca: mapa.marca || MARCA_FIXA,
     titulo: mapa.titulo || 'Sorteio de Sábado • Super Kit Churrasco',
     subtitulo: mapa.subtitulo || '',
@@ -448,7 +448,7 @@ function obterConfig(db) {
  */
 function obterConfigRifaAdmin(db, rifaId = null) {
   const cfgPublica = obterConfig(db);
-  const idAlvo = rifaId ? Number(rifaId) : cfgPublica.rifaId;
+  const idAlvo = rifaId !== null && rifaId !== undefined ? Number(rifaId) : cfgPublica.rifaId;
   const reg = db.prepare('SELECT * FROM rifas WHERE id = ?').get(idAlvo);
   if (!reg || reg.ativa === 1) {
     return {
@@ -494,7 +494,7 @@ function atualizarTitulo(db, novoTitulo) {
  */
 function atualizarConfigRifa(db, dados = {}) {
   const cfgPublica = obterConfig(db);
-  const idAlvo = dados.rifaId ? Number(dados.rifaId) : cfgPublica.rifaId;
+  const idAlvo = dados.rifaId !== undefined && dados.rifaId !== null ? Number(dados.rifaId) : cfgPublica.rifaId;
   const cfgAlvo = obterConfigRifaAdmin(db, idAlvo);
 
   const novoTitulo = dados.titulo !== undefined ? String(dados.titulo).trim() : cfgAlvo.titulo;
@@ -745,7 +745,7 @@ function destravarRifa(db, idRifa = null) {
   return transacao(db, () => {
     salvarSnapshotRifaPublica(db);
     const cfgPublica = obterConfig(db);
-    const idAlvo = idRifa ? Number(idRifa) : cfgPublica.rifaId;
+    const idAlvo = idRifa !== null && idRifa !== undefined ? Number(idRifa) : cfgPublica.rifaId;
 
     const destino = db.prepare('SELECT * FROM rifas WHERE id = ?').get(idAlvo);
     if (!destino) {
@@ -798,7 +798,7 @@ function destravarRifa(db, idRifa = null) {
  */
 function excluirRifa(db, idRifa) {
   const id = Number(idRifa);
-  if (!Number.isInteger(id) || id < 1) {
+  if (!Number.isInteger(id) || id < 0) {
     return { ok: false, codigo: 'ID_INVALIDO', erro: 'ID de rifa inválido.' };
   }
 
@@ -883,7 +883,7 @@ function excluirRifa(db, idRifa) {
  */
 function ativarRifa(db, idRifa) {
   const id = Number(idRifa);
-  if (!Number.isInteger(id) || id < 1) {
+  if (!Number.isInteger(id) || id < 0) {
     return { ok: false, codigo: 'ID_INVALIDO', erro: 'ID de rifa inválido.' };
   }
   const destino = db.prepare('SELECT * FROM rifas WHERE id = ?').get(id);
@@ -1204,7 +1204,7 @@ function confirmar(db, numero, agora = Date.now(), rifaId = null) {
     expirar(db, agora);
     const dataHora = formatarDataHora(agora);
     const cfgPublica = obterConfig(db);
-    const idAlvo = rifaId ? Number(rifaId) : cfgPublica.rifaId;
+    const idAlvo = rifaId !== null && rifaId !== undefined ? Number(rifaId) : cfgPublica.rifaId;
     const regRifa = db.prepare('SELECT * FROM rifas WHERE id = ?').get(idAlvo);
 
     if (!regRifa || regRifa.ativa === 1) {
@@ -1260,7 +1260,7 @@ function confirmar(db, numero, agora = Date.now(), rifaId = null) {
 function liberar(db, numero, rifaId = null) {
   return transacao(db, () => {
     const cfgPublica = obterConfig(db);
-    const idAlvo = rifaId ? Number(rifaId) : cfgPublica.rifaId;
+    const idAlvo = rifaId !== null && rifaId !== undefined ? Number(rifaId) : cfgPublica.rifaId;
     const regRifa = db.prepare('SELECT * FROM rifas WHERE id = ?').get(idAlvo);
 
     if (!regRifa || regRifa.ativa === 1) {
@@ -1321,7 +1321,7 @@ function liberar(db, numero, rifaId = null) {
 function encerrarRifa(db, rifaId = null) {
   return transacao(db, () => {
     const cfgPublica = obterConfig(db);
-    const idAlvo = rifaId ? Number(rifaId) : cfgPublica.rifaId;
+    const idAlvo = rifaId !== null && rifaId !== undefined ? Number(rifaId) : cfgPublica.rifaId;
     const regRifa = db.prepare('SELECT * FROM rifas WHERE id = ?').get(idAlvo);
 
     if (!regRifa || regRifa.ativa === 1) {
@@ -1403,7 +1403,7 @@ function listarPublico(db, agora = Date.now(), sessaoIdCliente = null) {
 function listarTodasCotas(db, agora = Date.now(), rifaId = null) {
   expirar(db, agora);
   const cfgPublica = obterConfig(db);
-  const idAlvo = rifaId ? Number(rifaId) : cfgPublica.rifaId;
+  const idAlvo = rifaId !== null && rifaId !== undefined ? Number(rifaId) : cfgPublica.rifaId;
   const regRifa = db.prepare('SELECT * FROM rifas WHERE id = ?').get(idAlvo);
 
   if (!regRifa || regRifa.ativa === 1) {

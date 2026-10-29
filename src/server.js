@@ -282,9 +282,19 @@ function criarApp(conn, cfg = {}) {
     }
   }
 
+  function extrairRifaId(req) {
+    if (req.body && req.body.rifaId !== undefined && req.body.rifaId !== null && req.body.rifaId !== '') {
+      return Number(req.body.rifaId);
+    }
+    if (req.query && req.query.rifaId !== undefined && req.query.rifaId !== null && req.query.rifaId !== '') {
+      return Number(req.query.rifaId);
+    }
+    return null;
+  }
+
   // ---- Rotas Administrativas Protegidas ----
   app.get('/api/admin/pedidos', somenteLocal, exigirAuthAdmin, (req, res) => {
-    const rifaIdSolicitada = req.query.rifaId ? Number(req.query.rifaId) : null;
+    const rifaIdSolicitada = extrairRifaId(req);
     const cfgPublica = db.obterConfig(conn);
     const cfgAdmin = db.obterConfigRifaAdmin(conn, rifaIdSolicitada);
     res.json({
@@ -327,7 +337,7 @@ function criarApp(conn, cfg = {}) {
   });
 
   app.post('/api/admin/destravar', somenteLocal, exigirAuthAdmin, (req, res) => {
-    const rifaId = (req.body && req.body.rifaId) || req.query.rifaId || null;
+    const rifaId = extrairRifaId(req);
     const r = db.destravarRifa(conn, rifaId);
     if (r.ok && r.config) {
       persistirConfigSeProducao(r.config);
@@ -360,19 +370,19 @@ function criarApp(conn, cfg = {}) {
   });
 
   app.post('/api/admin/confirmar/:n', somenteLocal, exigirAuthAdmin, (req, res) => {
-    const rifaId = (req.body && req.body.rifaId) || req.query.rifaId || null;
+    const rifaId = extrairRifaId(req);
     const r = db.confirmar(conn, Number(req.params.n), Date.now(), rifaId);
     res.status(r.ok ? 200 : 409).json(r);
   });
 
   app.post('/api/admin/liberar/:n', somenteLocal, exigirAuthAdmin, (req, res) => {
-    const rifaId = (req.body && req.body.rifaId) || req.query.rifaId || null;
+    const rifaId = extrairRifaId(req);
     const r = db.liberar(conn, Number(req.params.n), rifaId);
     res.status(r.ok ? 200 : 409).json(r);
   });
 
   app.post('/api/admin/encerrar', somenteLocal, exigirAuthAdmin, (req, res) => {
-    const rifaId = (req.body && req.body.rifaId) || req.query.rifaId || null;
+    const rifaId = extrairRifaId(req);
     const r = db.encerrarRifa(conn, rifaId);
     res.json(r);
   });
@@ -387,7 +397,7 @@ function criarApp(conn, cfg = {}) {
 
   async function exportarPlanilhaHandler(req, res) {
     try {
-      const rifaId = req.query.rifaId ? Number(req.query.rifaId) : null;
+      const rifaId = extrairRifaId(req);
       const custoKit = req.query.custoKit !== undefined ? req.query.custoKit : 0;
       const buffer = await db.gerarPlanilhaXLSX(conn, Date.now(), rifaId, custoKit);
       res.setHeader(
@@ -406,7 +416,7 @@ function criarApp(conn, cfg = {}) {
   app.get('/api/admin/exportar-csv', somenteLocal, exigirAuthAdmin, exportarPlanilhaHandler);
 
   app.get('/api/admin/mensagem-whatsapp', somenteLocal, exigirAuthAdmin, (req, res) => {
-    const rifaId = req.query.rifaId ? Number(req.query.rifaId) : null;
+    const rifaId = extrairRifaId(req);
     const r = db.gerarMensagemWhatsapp(conn, rifaId);
     res.status(r.ok ? 200 : 409).json(r);
   });
