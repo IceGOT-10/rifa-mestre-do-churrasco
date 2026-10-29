@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>Painel Admin • Mestre do Churrasco • Rifas</title>
+  <meta name="robots" content="noindex">
+  <style>
+    :root {
+      --tinta: #1b1410;
+      --tinta-2: #2a201a;
+      --creme: #f6ecd9;
+      --creme-2: #e7ddc6;
+      --pend: #f2b632;
+      --pago: #2f9e5b;
+      --coral: #e8553d;
+      --perigo: #b42318;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: #f3ede0;
+      color: var(--tinta);
+      min-height: 100dvh;
+    }
+    header {
+      background: var(--tinta);
+      color: var(--creme);
+      padding: 18px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 24px;
+      align-items: center;
+      border-bottom: 3px solid var(--pend);
+    }
+    .marca-topo {
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .16em;
+      color: var(--pend);
+      font-weight: 800;
+      margin: 0 0 4px;
+    }
+    h1 { margin: 0; font-size: 1.2rem; }
+    .sub-admin { margin: 4px 0 0; font-size: .8rem; color: var(--creme-2); opacity: .88; }
+    .kpi { display: flex; flex-wrap: wrap; gap: 12px; font-size: .82rem; margin-left: auto; align-items: center; }
+    .kpi div { text-align: center; background: rgba(255,255,255,.06); padding: 6px 12px; border-radius: 8px; }
+    .kpi b { font-size: 1.15rem; display: block; color: #fff; }
+    main { padding: 22px 24px; max-width: 1220px; margin: 0 auto; }
+
+    /* Card de Login */
+    .login-wrap {
+      max-width: 420px;
+      margin: 60px auto;
+      background: #fff;
+      border-radius: 16px;
+      padding: 28px 26px;
+      box-shadow: 0 12px 32px rgba(0,0,0,.12);
+    }
+    .login-wrap h2 { margin: 0 0 6px; font-size: 1.35rem; }
+    .login-wrap p.sub { margin: 0 0 18px; font-size: .9rem; color: #6b5e4c; }
+    .campo { margin-bottom: 14px; }
+    .campo label { display: block; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+    .campo input:not([type="checkbox"]), .campo select {
+      width: 100%; padding: 11px 14px; border-radius: 10px; border: 2px solid #d8ccb4;
+      font-size: .98rem; background: #fffdf9; color: var(--tinta);
+    }
+    .campo input:focus, .campo select:focus { border-color: var(--coral); outline: none; }
+    .campo-check {
+      display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
+      border-radius: 10px; background: #faf6ec; border: 1px solid #e0d4be; font-size: .86rem;
+    }
+    .campo-check input[type="checkbox"] { margin-top: 3px; transform: scale(1.15); accent-color: var(--coral); }
+    .alerta-login {
+      padding: 12px 14px; border-radius: 10px; font-size: .9rem; font-weight: 600;
+      margin-bottom: 14px; background: #ffe1db; color: #8a1f0d; border: 1px solid #f5b5a8;
+    }
+    .bloqueio-timer {
+      padding: 14px; border-radius: 10px; background: #fff4ce; border: 2px solid var(--pend);
+      color: #4d3800; font-weight: 700; text-align: center; margin-bottom: 14px;
+    }
+    .bloqueio-timer b { font-size: 1.3rem; font-variant-numeric: tabular-nums; display: block; margin-top: 4px; }
+
+    /* Barra de Ferramentas Administrativa */
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
+      margin-bottom: 18px; background: #fff; padding: 14px 18px; border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    }
+    .toolbar-grupo { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+    button, .btn-link {
+      border: 0; border-radius: 8px; padding: 9px 13px; font-weight: 700; font-size: .86rem;
+      cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+      transition: filter .15s, opacity .15s;
+    }
+    button:hover:not(:disabled) { filter: brightness(1.06); }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-primario { background: var(--coral); color: #fff; }
+    .btn-editar { background: #3b5998; color: #fff; }
+    .btn-csv { background: var(--tinta); color: var(--creme); }
+    .btn-encerrar { background: var(--perigo); color: #fff; }
+    .btn-destravar { background: var(--pago); color: #fff; }
+    .btn-excluir { background: #5a1818; color: #ffdad6; }
+    .btn-zap { background: #25d366; color: #053318; }
+    .btn-sair { background: transparent; border: 1px solid rgba(255,255,255,.3); color: var(--creme); padding: 7px 12px; }
+    .conf { background: var(--pago); color: #fff; padding: 7px 12px; font-size: .82rem; }
+    .lib { background: var(--creme-2); color: var(--tinta); padding: 7px 12px; font-size: .82rem; margin-left: 6px; }
+
+    .seletor-rifa {
+      padding: 8px 12px; border-radius: 8px; border: 2px solid #d5c8b0;
+      background: #faf7f0; font-weight: 700; font-size: .85rem; color: var(--tinta);
+      max-width: 390px;
+    }
+
+    /* Modal / Painel de Criação e Edição de Rifas */
+    dialog.modal-admin {
+      border: 0; border-radius: 16px; padding: 24px 26px; width: min(94vw, 520px);
+      background: #fff; color: var(--tinta); box-shadow: 0 24px 64px rgba(0,0,0,.35);
+    }
+    dialog.modal-admin::backdrop { background: rgba(15,10,6,.6); backdrop-filter: blur(2px); }
+    .modal-admin h3 { margin: 0 0 6px; font-size: 1.25rem; }
+    .modal-admin p.desc { margin: 0 0 16px; font-size: .88rem; color: #6b5e4c; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .acoes-modal { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+    .btn-cancelar { background: var(--creme-2); color: var(--tinta); }
+
+    /* Seção Gerador de Mensagem para WhatsApp */
+    .painel-zap {
+      background: #fff; border-radius: 12px; padding: 18px; margin-bottom: 18px;
+      border: 2px solid #25d366; box-shadow: 0 4px 16px rgba(0,0,0,.08);
+    }
+    .painel-zap h3 { margin: 0 0 6px; font-size: 1.05rem; }
+    .painel-zap p { margin: 0 0 10px; font-size: .85rem; color: #5c5142; }
+    .painel-zap textarea {
+      width: 100%; min-height: 160px; padding: 12px; border-radius: 8px;
+      border: 1px solid #d5c8b0; font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: .9rem; background: #faf7f0; color: var(--tinta); resize: vertical;
+    }
+    .acoes-zap { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+
+    /* Tabela de Pedidos */
+    table {
+      width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px;
+      overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,.08);
+    }
+    th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid #eee; font-size: .92rem; }
+    th { background: #efe6d2; font-size: .74rem; text-transform: uppercase; letter-spacing: .08em; }
+    td.n { font-weight: 800; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+    .tag { padding: 4px 10px; border-radius: 99px; font-size: .75rem; font-weight: 700; display: inline-block; }
+    .tag.PENDENTE { background: var(--pend); color: #3a2a00; }
+    .tag.PAGO { background: var(--pago); color: #fff; }
+    .tag.ARQUIVADA { background: #d5c8b0; color: #2a201a; }
+    .vazio { text-align: center; padding: 40px; color: #7a6e5c; }
+    .tempo { font-variant-numeric: tabular-nums; font-size: .85rem; }
+    #msg {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: var(--tinta); color: var(--creme); padding: 12px 20px;
+      border-radius: 10px; font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,.35); z-index: 50;
+    }
+    @media (max-width: 720px) {
+      .oculto-m { display: none; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <p class="marca-topo" id="adm-marca">Mestre do Churrasco • Rifas</p>
+      <h1 id="adm-titulo">Painel Administrativo</h1>
+      <p class="sub-admin" id="adm-visibilidade">Carregando informações da rifa…</p>
+    </div>
+    <div class="kpi" id="kpis" hidden>
+      <div><b id="k-valor">R$ 5,00</b>valor da cota</div>
+      <div><b id="k-pend">0</b>pendentes</div>
+      <div><b id="k-pago">0</b>pagos</div>
+      <div><b id="k-livre">60</b>livres</div>
+      <button id="btn-sair" class="btn-sair" type="button">Sair</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- TELA DE LOGIN COM ANTI-FORÇA BRUTA -->
+    <section id="tela-login" class="login-wrap" hidden>
+      <h2>Acesso Restrito</h2>
+      <p class="sub">Entre com suas credenciais administrativas para gerenciar as cotas.</p>
+
+      <div id="box-bloqueio" class="bloqueio-timer" hidden>
+        🔒 Muitas tentativas incorretas! Login bloqueado por segurança.
+        <b id="timer-bloqueio">05:00</b>
+      </div>
+
+      <div id="erro-login" class="alerta-login" role="alert" hidden></div>
+
+      <form id="form-login" autocomplete="off">
+        <div class="campo">
+          <label for="login-user">Usuário</label>
+          <input id="login-user" type="text" required placeholder="admin">
+        </div>
+        <div class="campo">
+          <label for="login-pass">Senha</label>
+          <input id="login-pass" type="password" required placeholder="••••••••">
+        </div>
+        <button id="btn-entrar" class="btn-primario" style="width:100%;justify-content:center" type="submit">
+          Entrar no Painel
+        </button>
+      </form>
+    </section>
+
+    <!-- CONTEÚDO DO PAINEL ADMINISTRATIVO -->
+    <section id="tela-painel" hidden>
+      <div class="toolbar">
+        <div class="toolbar-grupo">
+          <button id="btn-nova-rifa" class="btn-primario" type="button">➕ Criar Nova Rifa</button>
+          <button id="btn-editar-rifa" class="btn-editar" type="button">✏️ Editar Rifa / Cotas</button>
+          <button id="btn-exportar-csv" class="btn-csv" type="button">📊 Exportar Excel (.xlsx)</button>
+          <button id="btn-encerrar" class="btn-encerrar" type="button">🔒 Encerrar Rifa</button>
+          <button id="btn-destravar" class="btn-destravar" type="button" hidden>🔓 Destravar Rifa</button>
+          <button id="btn-excluir-rifa" class="btn-excluir" type="button">🗑️ Excluir Rifa</button>
+          <button id="btn-gerar-zap" class="btn-zap" type="button" disabled>
+            📱 Gerar Mensagem para WhatsApp
+          </button>
+        </div>
+        <div class="toolbar-grupo">
+          <select id="select-rifa" class="seletor-rifa" aria-label="Navegar entre rifas no Admin"></select>
+          <span id="badge-status-rifa" class="tag PENDENTE">Rifa Aberta</span>
+        </div>
+      </div>
+
+      <!-- GERADOR DE LISTA PARA WHATSAPP (SEM TELEFONES POR PRIVACIDADE) -->
+      <div id="painel-zap" class="painel-zap" hidden>
+        <h3>Lista Oficial de Participantes (Pronta para WhatsApp)</h3>
+        <p>Os números de telefone foram omitidos automaticamente para proteger a privacidade dos participantes.</p>
+        <textarea id="texto-zap" readonly></textarea>
+        <div class="acoes-zap">
+          <button id="btn-copiar-lista" class="btn-primario" type="button">📋 Copiar Texto</button>
+          <span id="status-copia-zap" style="font-weight:700;color:var(--pago)" hidden>✓ Texto copiado para a área de transferência!</span>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Cota</th>
+            <th>Valor</th>
+            <th>Nome</th>
+            <th>WhatsApp</th>
+            <th>Status</th>
+            <th class="oculto-m">Data/Hora</th>
+            <th class="oculto-m">Expira em</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="corpo"></tbody>
+      </table>
+      <p style="font-size:.8rem;opacity:.65;margin-top:12px">
+        Navegar entre rifas aqui no Admin não altera a rifa exibida para os participantes. O site público sempre exibe a única rifa aberta (ou a última aberta, caso encerrada).
+      </p>
+    </section>
+  </main>
+
+  <!-- MODAL DE CRIAÇÃO / EDIÇÃO DE RIFA E COTAS -->
+  <dialog id="modal-rifa" class="modal-admin">
+    <h3 id="modal-rifa-titulo">Criar Nova Rifa</h3>
+    <p id="modal-rifa-desc" class="desc">
+      Configure o nome da rifa, a quantidade total de cotas (pontos) e o valor de cada cota.
+    </p>
+    <div id="erro-modal-rifa" class="alerta-login" hidden></div>
+    <form id="form-rifa">
+      <input type="hidden" id="rifa-modo" value="nova">
+      <div class="campo">
+        <label for="rifa-nome">Nome / Título da Rifa</label>
+        <input id="rifa-nome" type="text" maxlength="120" required placeholder="Ex: Sorteio de Sábado • Super Kit Churrasco">
+      </div>
+      <div class="grid-2">
+        <div class="campo">
+          <label for="rifa-cotas">Quantidade de Cotas (Pontos)</label>
+          <input id="rifa-cotas" type="number" min="1" max="1000" required value="60">
+        </div>
+        <div class="campo">
+          <label for="rifa-valor">Valor por Cota (R$)</label>
+          <input id="rifa-valor" type="text" required placeholder="R$ 5,00">
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="campo">
+          <label for="rifa-pix">Chave Pix</label>
+          <input id="rifa-pix" type="text" placeholder="Sua chave Pix">
+        </div>
+        <div class="campo">
+          <label for="rifa-zap">WhatsApp Recebimento (com DDD)</label>
+          <input id="rifa-zap" type="text" placeholder="5589994365037">
+        </div>
+      </div>
+      <div class="campo" id="wrap-abrir-agora">
+        <label class="campo-check">
+          <input type="checkbox" id="rifa-abrir-agora">
+          <span>
+            <strong>Abrir esta nova rifa imediatamente para os usuários</strong><br>
+            <small style="color:#6b5e4c">Se já houver outra rifa aberta em andamento e esta opção ficar desmarcada, a rifa atual continuará aberta na tela dos usuários e você poderá destravar esta nova rifa quando quiser.</small>
+          </span>
+        </label>
+      </div>
+      <div class="acoes-modal">
+        <button id="btn-fechar-modal-rifa" class="btn-cancelar" type="button">Cancelar</button>
+        <button id="btn-salvar-rifa" class="btn-primario" type="submit">Salvar Rifa</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="msg" hidden></div>
+
+  <script>
+    'use strict';
+    const $ = id => document.getElementById(id);
+    const pad = n => String(n).padStart(2, '0');
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    let offset = 0;
+    let pedidos = [];
+    let rifas = [];
+    let rifaVisualizadaId = null; // ID da rifa que o Admin está inspecionando (não altera a tela do usuário)
+    let rifaPublicaId = null;     // ID da rifa que está na tela do usuário
+    let estadoRifa = {
+      rifaId: 1,
+      naTelaDoUsuario: true,
+      titulo: '',
+      valor: 'R$ 5,00',
+      total: 60,
+      pixKey: '',
+      whatsapp: '',
+    };
+    let encerrada = false;
+    let autenticado = false;
+    let timerBloqueioId = null;
+
+    function aviso(t) {
+      const m = $('msg');
+      m.textContent = t;
+      m.hidden = false;
+      clearTimeout(aviso.i);
+      aviso.i = setTimeout(() => { m.hidden = true; }, 4000);
+    }
+
+    function iniciarContagemBloqueio(segundosIniciais) {
+      clearInterval(timerBloqueioId);
+      let seg = Math.max(0, Math.ceil(segundosIniciais));
+      const box = $('box-bloqueio');
+      const lbl = $('timer-bloqueio');
+      const btn = $('btn-entrar');
+      const uIn = $('login-user');
+      const pIn = $('login-pass');
+
+      if (seg <= 0) {
+        box.hidden = true;
+        btn.disabled = false;
+        uIn.disabled = false;
+        pIn.disabled = false;
+        return;
+      }
+
+      box.hidden = false;
+      btn.disabled = true;
+      uIn.disabled = true;
+      pIn.disabled = true;
+
+      const atualizarRelogio = () => {
+        if (seg <= 0) {
+          clearInterval(timerBloqueioId);
+          box.hidden = true;
+          btn.disabled = false;
+          uIn.disabled = false;
+          pIn.disabled = false;
+          $('erro-login').hidden = true;
+          return;
+        }
+        const m = pad(Math.floor(seg / 60));
+        const s = pad(seg % 60);
+        lbl.textContent = `Tempo de espera: ${m}:${s}`;
+        seg--;
+      };
+      atualizarRelogio();
+      timerBloqueioId = setInterval(atualizarRelogio, 1000);
+    }
+
+    function atualizarEstadoEncerramento() {
+      const btnEnc = $('btn-encerrar');
+      const btnDest = $('btn-destravar');
+      const btnZap = $('btn-gerar-zap');
+      const badge = $('badge-status-rifa');
+      const subVis = $('adm-visibilidade');
+
+      if (encerrada) {
+        btnEnc.hidden = true;
+        btnDest.hidden = false;
+        btnDest.disabled = false;
+        btnZap.disabled = false;
+        if (estadoRifa.naTelaDoUsuario) {
+          badge.textContent = '🔒 Encerrada (Visível na tela do usuário)';
+          badge.className = 'tag PAGO';
+          if (subVis) {
+            subVis.textContent = 'Esta foi a última rifa aberta e está exibida na tela dos usuários com o aviso de encerrada. Clique em "Destravar Rifa" se quiser reabri-la.';
+          }
+        } else {
+          badge.textContent = '📁 Travada / Arquivada (Apenas no Admin)';
+          badge.className = 'tag ARQUIVADA';
+          if (subVis) {
+            subVis.textContent = 'Você está visualizando esta rifa apenas no Admin. Os usuários continuam vendo a rifa aberta. Clique em "Destravar Rifa" para torná-la a rifa aberta.';
+          }
+        }
+      } else {
+        btnEnc.hidden = false;
+        btnEnc.disabled = false;
+        btnEnc.textContent = '🔒 Encerrar Rifa';
+        btnDest.hidden = true;
+        btnZap.disabled = true;
+        badge.textContent = '🟢 Rifa Aberta (Visível para Usuários)';
+        badge.className = 'tag PENDENTE';
+        if (subVis) {
+          subVis.textContent = 'Esta é a única rifa aberta no momento e está recebendo reservas dos participantes em tempo real.';
+        }
+      }
+    }
+
+    function desenharSeletorRifas() {
+      const sel = $('select-rifa');
+      if (!sel) return;
+      if (!rifas || !rifas.length) {
+        sel.hidden = true;
+        return;
+      }
+      sel.hidden = false;
+      sel.innerHTML = rifas.map(r => {
+        let sufixo = '';
+        if (!r.encerrada) {
+          sufixo = ' [🟢 ABERTA - Tela do Usuário]';
+        } else if (r.ativa) {
+          sufixo = ' [🔒 ENCERRADA - Tela do Usuário]';
+        } else {
+          sufixo = ' [📁 Travada]';
+        }
+        const selecionado = r.id === estadoRifa.rifaId ? 'selected' : '';
+        return `<option value="${r.id}" ${selecionado}>#${r.id} • ${esc(r.titulo)} (${r.total} cotas - ${esc(r.valor)})${sufixo}</option>`;
+      }).join('');
+    }
+
+    function desenhar() {
+      if (!autenticado) return;
+      const agora = Date.now() + offset;
+      const totalCotas = estadoRifa.total || 60;
+      const pend = pedidos.filter(p => p.status === 'PENDENTE').length;
+      const pago = pedidos.filter(p => p.status === 'PAGO').length;
+      $('k-valor').textContent = estadoRifa.valor || 'R$ 5,00';
+      $('k-pend').textContent = pend;
+      $('k-pago').textContent = pago;
+      $('k-livre').textContent = Math.max(0, totalCotas - pend - pago);
+      atualizarEstadoEncerramento();
+
+      $('corpo').innerHTML = pedidos.length
+        ? pedidos.map(p => {
+            const s = (p.status === 'PENDENTE' && p.tempo_limite)
+              ? Math.max(0, Math.ceil((p.tempo_limite - agora) / 1000))
+              : null;
+            const nomeExibicao = p.nome || p.reservado_por || '(Em pré-bloqueio 10m)';
+            const tel = esc(p.whatsapp || '—');
+            const linkZap = p.whatsapp
+              ? `<a href="https://wa.me/55${tel.replace(/^55/, '')}" target="_blank" rel="noopener">${tel}</a>`
+              : '—';
+            const rotuloStatus = p.status === 'PAGO'
+              ? 'Pago (Confirmado)'
+              : (p.etapa === 'PRE_BLOQUEIO' ? 'Pré-bloqueio (10m)' : 'Reservado (Pendente)');
+            const dataHora = esc(p.data_hora || '—');
+            const valorCota = esc(p.valor || estadoRifa.valor || 'R$ 5,00');
+
+            return `<tr>
+              <td class="n">${pad(p.numero)}</td>
+              <td><strong>${valorCota}</strong></td>
+              <td>${esc(nomeExibicao)}</td>
+              <td>${linkZap}</td>
+              <td><span class="tag ${p.status}">${rotuloStatus}</span></td>
+              <td class="oculto-m">${dataHora}</td>
+              <td class="oculto-m tempo">${s === null ? '—' : pad(Math.floor(s / 60)) + ':' + pad(s % 60)}</td>
+              <td>
+                ${p.status === 'PENDENTE' ? `<button class="conf" data-a="confirmar" data-n="${p.numero}">Confirmar Pagamento</button>` : ''}
+                <button class="lib" data-a="liberar" data-n="${p.numero}">Liberar</button>
+              </td>
+            </tr>`;
+          }).join('')
+        : '<tr><td colspan="8" class="vazio">Nenhum pedido registrado nesta rifa no momento.</td></tr>';
+    }
+
+    async function carregarPedidos() {
+      if (!autenticado) return;
+      try {
+        const qs = rifaVisualizadaId ? `?rifaId=${encodeURIComponent(rifaVisualizadaId)}` : '';
+        const r = await fetch(`/api/admin/pedidos${qs}`, { cache: 'no-store' });
+        if (r.status === 401) {
+          mostrarTelaLogin();
+          return;
+        }
+        const j = await r.json();
+        offset = j.agora - Date.now();
+        encerrada = Boolean(j.encerrada);
+        rifaPublicaId = j.rifaPublicaId || j.rifaId;
+        rifaVisualizadaId = j.rifaId;
+        estadoRifa = {
+          rifaId: j.rifaId || 1,
+          naTelaDoUsuario: Boolean(j.naTelaDoUsuario),
+          titulo: j.titulo || '',
+          valor: j.valor || 'R$ 5,00',
+          total: j.total || 60,
+          pixKey: j.pixKey || '',
+          whatsapp: j.whatsapp || '',
+        };
+        if (j.marca) $('adm-marca').textContent = j.marca;
+        if (j.titulo) $('adm-titulo').textContent = `Painel Admin • #${estadoRifa.rifaId} ${j.titulo} (${estadoRifa.total} cotas de ${estadoRifa.valor})`;
+        rifas = j.rifas || [];
+        pedidos = j.pedidos || [];
+        desenharSeletorRifas();
+        desenhar();
+      } catch {
+        aviso('Sem conexão com o servidor');
+      }
+    }
+
+    function mostrarTelaLogin() {
+      autenticado = false;
+      $('tela-painel').hidden = true;
+      $('kpis').hidden = true;
+      $('tela-login').hidden = false;
+    }
+
+    function mostrarPainel() {
+      autenticado = true;
+      $('tela-login').hidden = true;
+      $('tela-painel').hidden = false;
+      $('kpis').hidden = false;
+      carregarPedidos();
+    }
+
+    // ---- Modal de Criação e Edição de Rifas ----
+    const modalRifa = $('modal-rifa');
+
+    $('btn-nova-rifa').addEventListener('click', () => {
+      $('rifa-modo').value = 'nova';
+      $('modal-rifa-titulo').textContent = '➕ Criar Nova Rifa';
+      $('modal-rifa-desc').textContent = 'Defina o nome da nova rifa, a quantidade de cotas e o valor unitário.';
+      $('erro-modal-rifa').hidden = true;
+      $('rifa-nome').value = '';
+      $('rifa-cotas').value = estadoRifa.total || 60;
+      $('rifa-valor').value = estadoRifa.valor || 'R$ 5,00';
+      $('rifa-pix').value = estadoRifa.pixKey || '';
+      $('rifa-zap').value = estadoRifa.whatsapp || '';
+      $('wrap-abrir-agora').hidden = false;
+      const existeAberta = rifas.some(r => !r.encerrada);
+      $('rifa-abrir-agora').checked = !existeAberta;
+      $('btn-salvar-rifa').textContent = 'Criar Nova Rifa';
+      modalRifa.showModal();
+    });
+
+    $('btn-editar-rifa').addEventListener('click', () => {
+      $('rifa-modo').value = 'editar';
+      $('modal-rifa-titulo').textContent = `✏️ Editar Rifa #${estadoRifa.rifaId} e Cotas`;
+      $('modal-rifa-desc').textContent = 'Modifique o nome da rifa, a quantidade de cotas e o valor unitário sem perder os pedidos.';
+      $('erro-modal-rifa').hidden = true;
+      $('rifa-nome').value = estadoRifa.titulo || '';
+      $('rifa-cotas').value = estadoRifa.total || 60;
+      $('rifa-valor').value = estadoRifa.valor || 'R$ 5,00';
+      $('rifa-pix').value = estadoRifa.pixKey || '';
+      $('rifa-zap').value = estadoRifa.whatsapp || '';
+      $('wrap-abrir-agora').hidden = true;
+      $('btn-salvar-rifa').textContent = 'Salvar Alterações';
+      modalRifa.showModal();
+    });
+
+    $('btn-fechar-modal-rifa').addEventListener('click', () => {
+      modalRifa.close();
+    });
+
+    $('form-rifa').addEventListener('submit', async e => {
+      e.preventDefault();
+      const modo = $('rifa-modo').value;
+      const erroEl = $('erro-modal-rifa');
+      erroEl.hidden = true;
+
+      const payload = {
+        rifaId: estadoRifa.rifaId,
+        titulo: $('rifa-nome').value.trim(),
+        total: Number($('rifa-cotas').value),
+        valor: $('rifa-valor').value.trim(),
+        pixKey: $('rifa-pix').value.trim(),
+        whatsapp: $('rifa-zap').value.trim(),
+        abrirAgora: $('rifa-abrir-agora').checked,
+      };
+
+      const rota = modo === 'nova' ? '/api/admin/nova-rifa' : '/api/admin/config';
+      try {
+        const r = await fetch(rota, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const j = await r.json();
+        if (!r.ok || !j.ok) {
+          erroEl.textContent = j.erro || 'Não foi possível salvar a rifa.';
+          erroEl.hidden = false;
+          return;
+        }
+        modalRifa.close();
+        $('painel-zap').hidden = true;
+        if (modo === 'nova' && j.rifaId) {
+          rifaVisualizadaId = j.rifaId;
+          aviso(
+            j.abertaParaUsuarios
+              ? 'Nova rifa criada e aberta para os participantes!'
+              : 'Nova rifa criada! A rifa aberta anterior continua na tela dos usuários.'
+          );
+        } else {
+          aviso('Rifa e cotas atualizadas com sucesso!');
+        }
+        await carregarPedidos();
+      } catch {
+        erroEl.textContent = 'Erro de conexão com o servidor.';
+        erroEl.hidden = false;
+      }
+    });
+
+    // Navegar entre rifas no Admin apenas muda a rifa visualizada no painel (não altera a rifa do usuário!)
+    $('select-rifa').addEventListener('change', async e => {
+      const id = Number(e.target.value);
+      if (!id) return;
+      rifaVisualizadaId = id;
+      $('painel-zap').hidden = true;
+      await carregarPedidos();
+      aviso(`Visualizando no Admin a rifa #${id} (a tela dos usuários não foi alterada).`);
+    });
+
+    $('form-login').addEventListener('submit', async e => {
+      e.preventDefault();
+      const erroEl = $('erro-login');
+      erroEl.hidden = true;
+      const usuario = $('login-user').value.trim();
+      const senha = $('login-pass').value;
+
+      try {
+        const r = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usuario, senha }),
+        });
+        const j = await r.json();
+
+        if (r.status === 429 || j.codigo === 'BLOQUEADO_TEMPORARIAMENTE') {
+          erroEl.textContent = j.erro;
+          erroEl.hidden = false;
+          iniciarContagemBloqueio(j.segundosRestantes || 300);
+          return;
+        }
+
+        if (!r.ok || !j.ok) {
+          erroEl.textContent = j.erro || 'Credenciais inválidas.';
+          erroEl.hidden = false;
+          return;
+        }
+
+        $('login-pass').value = '';
+        mostrarPainel();
+      } catch {
+        erroEl.textContent = 'Erro de conexão ao tentar autenticar.';
+        erroEl.hidden = false;
+      }
+    });
+
+    $('btn-sair').addEventListener('click', async () => {
+      await fetch('/api/admin/logout', { method: 'POST' });
+      mostrarTelaLogin();
+    });
+
+    $('corpo').addEventListener('click', async e => {
+      const b = e.target.closest('button[data-a]');
+      if (!b) return;
+      const n = b.dataset.n;
+      if (b.dataset.a === 'liberar' && !confirm(`Liberar a cota ${pad(n)}? Os dados do pedido serão removidos.`)) return;
+      b.disabled = true;
+      const r = await fetch(`/api/admin/${b.dataset.a}/${n}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rifaId: estadoRifa.rifaId }),
+      });
+      const j = await r.json();
+      aviso(j.ok ? `Cota ${pad(n)}: ${b.dataset.a === 'confirmar' ? 'pagamento confirmado' : 'liberada'}` : j.erro);
+      carregarPedidos();
+    });
+
+    $('btn-exportar-csv').addEventListener('click', () => {
+      window.location.href = `/api/admin/exportar-planilha?rifaId=${encodeURIComponent(estadoRifa.rifaId)}`;
+    });
+
+    $('btn-encerrar').addEventListener('click', async () => {
+      if (!confirm(`Deseja encerrar a rifa "${estadoRifa.titulo}"? Novas reservas serão bloqueadas na grade.`)) return;
+      const r = await fetch('/api/admin/encerrar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rifaId: estadoRifa.rifaId }),
+      });
+      const j = await r.json();
+      if (j.ok) {
+        encerrada = true;
+        atualizarEstadoEncerramento();
+        aviso('Rifa encerrada! Caso tenha encerrado por engano, use o botão "Destravar Rifa".');
+        carregarPedidos();
+      }
+    });
+
+    $('btn-destravar').addEventListener('click', async () => {
+      const outraAberta = rifas.find(r => !r.encerrada && r.id !== estadoRifa.rifaId);
+      const msgConf = outraAberta
+        ? `Destravar e abrir a rifa "${estadoRifa.titulo}"?\n\nA rifa "${outraAberta.titulo}" será encerrada automaticamente para que haja apenas uma rifa aberta por vez.`
+        : `Deseja destravar e reabrir a rifa "${estadoRifa.titulo}" para receber novas reservas dos participantes?`;
+      if (!confirm(msgConf)) return;
+
+      const r = await fetch('/api/admin/destravar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rifaId: estadoRifa.rifaId }),
+      });
+      const j = await r.json();
+      if (j.ok) {
+        encerrada = false;
+        $('painel-zap').hidden = true;
+        aviso('Rifa destravada! Ela agora está aberta e visível para os participantes.');
+        await carregarPedidos();
+      } else {
+        aviso(j.erro || 'Não foi possível destravar a rifa.');
+      }
+    });
+
+    $('btn-excluir-rifa').addEventListener('click', async () => {
+      if (!confirm(`Tem certeza que deseja EXCLUIR permanentemente a rifa "#${estadoRifa.rifaId} - ${estadoRifa.titulo}" e todos os seus pedidos?`)) return;
+      const r = await fetch(`/api/admin/excluir-rifa/${estadoRifa.rifaId}`, { method: 'POST' });
+      const j = await r.json();
+      if (j.ok) {
+        rifaVisualizadaId = j.rifaId || null;
+        $('painel-zap').hidden = true;
+        aviso('Rifa excluída com sucesso.');
+        await carregarPedidos();
+      } else {
+        aviso(j.erro || 'Não foi possível excluir a rifa.');
+      }
+    });
+
+    $('btn-gerar-zap').addEventListener('click', async () => {
+      if (!encerrada) return;
+      const r = await fetch(`/api/admin/mensagem-whatsapp?rifaId=${encodeURIComponent(estadoRifa.rifaId)}`, { cache: 'no-store' });
+      const j = await r.json();
+      if (!r.ok || !j.ok) {
+        aviso(j.erro || 'Não foi possível gerar a lista.');
+        return;
+      }
+      $('texto-zap').value = j.mensagem;
+      $('painel-zap').hidden = false;
+      $('status-copia-zap').hidden = true;
+    });
+
+    $('btn-copiar-lista').addEventListener('click', async () => {
+      const texto = $('texto-zap').value;
+      let copiou = false;
+      try {
+        await navigator.clipboard.writeText(texto);
+        copiou = true;
+      } catch {
+        $('texto-zap').select();
+        copiou = document.execCommand('copy');
+      }
+      if (copiou) {
+        $('status-copia-zap').hidden = false;
+        aviso('Lista copiada para a área de transferência!');
+      }
+    });
+
+    (async function initAdmin() {
+      try {
+        const r = await fetch('/api/admin/sessao', { cache: 'no-store' });
+        const j = await r.json();
+        if (j.marca) $('adm-marca').textContent = j.marca;
+        if (j.titulo) $('adm-titulo').textContent = `Painel Admin • ${j.titulo}`;
+        encerrada = Boolean(j.encerrada);
+        if (j.bloqueado && j.segundosRestantes > 0) {
+          iniciarContagemBloqueio(j.segundosRestantes);
+        }
+        if (j.autenticado) {
+          mostrarPainel();
+        } else {
+          mostrarTelaLogin();
+        }
+      } catch {
+        mostrarTelaLogin();
+      }
+      setInterval(carregarPedidos, 2000);
+      setInterval(desenhar, 1000);
+    })();
+  </script>
+</body>
+</html>

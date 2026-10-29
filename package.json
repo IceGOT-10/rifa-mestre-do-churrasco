@@ -1,0 +1,20 @@
+{
+  "name": "rifa-local",
+  "version": "1.0.0",
+  "description": "Sistema web local leve para rifas (Express + SQLite embutido do Node)",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node tests/concorrencia.test.js && node tests/expiracao.test.js"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.1"
+  }
+}

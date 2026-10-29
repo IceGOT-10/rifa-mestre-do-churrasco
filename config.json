@@ -1,0 +1,13 @@
+{
+  "marca": "Mestre do Churrasco • Rifas",
+  "titulo": "Sorteio de Sábado • Super Kit Churrasco",
+  "subtitulo": "Escolha um ou mais números livres. Bloqueio de 10 minutos para concluir sua reserva e Pix.",
+  "valor": "R$ 10,00",
+  "pixKey": "89994365037",
+  "whatsapp": "5589994365037",
+  "minutosPreBloqueio": 10,
+  "adminUser": "admin",
+  "adminPass": "churrasco123",
+  "desabilitarBloqueioLogin": true,
+  "total": 60
+}
