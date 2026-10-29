@@ -74,3 +74,4 @@ O projeto conta com suíte completa de testes cobrindo concorrência massiva de 
 ```bash
 npm test
 ```
+

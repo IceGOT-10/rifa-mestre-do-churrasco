@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "test": "node tests/concorrencia.test.js && node tests/expiracao.test.js"
+    "test": "node tests/concorrencia.test.js && node tests/expiracao.test.js && node tests/edge-cases.test.js && node tests/stress-load.test.js"
   },
   "dependencies": {
     "exceljs": "^4.4.0",

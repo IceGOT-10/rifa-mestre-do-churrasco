@@ -153,7 +153,7 @@ function criarApp(conn, cfg = {}) {
   // Etapa 1: Pré-bloqueio temporário de 10 minutos para 1 ou múltiplos números selecionados
   app.post('/api/pre-reservar', (req, res) => {
     const { numero, numeros, sessaoId } = req.body || {};
-    const alvo = Array.isArray(numeros) ? numeros : Number(numero);
+    const alvo = Array.isArray(numeros) ? numeros : numero !== undefined ? numero : [];
     try {
       const r = db.preBloquear(conn, alvo, sessaoId);
       if (r.ok) return res.json(r);
@@ -168,7 +168,7 @@ function criarApp(conn, cfg = {}) {
 
   app.post('/api/cancelar-pre-reserva', (req, res) => {
     const { numero, numeros, sessaoId } = req.body || {};
-    const alvo = Array.isArray(numeros) ? numeros : numero !== undefined ? Number(numero) : [];
+    const alvo = Array.isArray(numeros) ? numeros : numero !== undefined ? numero : [];
     try {
       const r = db.cancelarPreBloqueio(conn, alvo, sessaoId);
       res.json(r);
@@ -180,7 +180,7 @@ function criarApp(conn, cfg = {}) {
   // Etapa 2: Transação Final Atômica ("Reservar e Pagar") para 1 ou múltiplos números
   app.post('/api/reservar', (req, res) => {
     const { numero, numeros, nome, whatsapp, sessaoId } = req.body || {};
-    const alvo = Array.isArray(numeros) ? numeros : Number(numero);
+    const alvo = Array.isArray(numeros) ? numeros : numero !== undefined ? numero : [];
     try {
       const r = db.reservar(conn, alvo, nome, whatsapp, sessaoId);
       if (r.ok) return res.json(r);
@@ -237,22 +237,16 @@ function criarApp(conn, cfg = {}) {
 
     if (!uOk || !sOk) {
       const falha = db.registrarFalhaLogin(conn, ip, agora);
-      if (falha.bloqueado) {
-        return res.status(429).json({
-          ok: false,
-          codigo: 'BLOQUEADO_TEMPORARIAMENTE',
-          falhas: falha.falhas,
-          segundosRestantes: falha.segundosRestantes,
-          bloqueadoAte: falha.bloqueadoAte,
-          erro: `Limite de 3 tentativas excedido! Login bloqueado por 5 minutos (${formatarMinSeg(falha.segundosRestantes)}).`,
-        });
-      }
       return res.status(401).json({
         ok: false,
         codigo: 'CREDENCIAIS_INVALIDAS',
         falhas: falha.falhas,
         tentativasRestantes: falha.tentativasRestantes,
-        erro: `Usuário ou senha incorretos. Tentativas restantes: ${falha.tentativasRestantes}.`,
+        bloqueado: falha.bloqueado,
+        segundosRestantes: falha.segundosRestantes,
+        erro: falha.bloqueado
+          ? `Limite de 3 tentativas excedido! Próximas tentativas bloqueadas por 5 minutos (${formatarMinSeg(falha.segundosRestantes)}).`
+          : `Usuário ou senha incorretos. Tentativas restantes: ${falha.tentativasRestantes}.`,
       });
     }
 

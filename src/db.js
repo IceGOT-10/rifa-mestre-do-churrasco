@@ -10,6 +10,17 @@ const MINUTOS_RESERVA = 10;
 const MARCA_FIXA = 'Mestre do Churrasco • Rifas';
 const CAMINHO_CONFIG_PADRAO = path.join(__dirname, '..', 'config.json');
 
+function sanitizarNomeExcel(nome) {
+  if (nome === null || nome === undefined) return '';
+  const str = String(nome).trim();
+  if (!str) return '';
+  // Previne Injeção de Fórmulas no Excel (.xlsx / CSV)
+  if (/^[=+\-@\t\r]/.test(str)) {
+    return `'${str}`;
+  }
+  return str;
+}
+
 function pad(n) {
   return String(n).padStart(2, '0');
 }
@@ -513,16 +524,17 @@ function atualizarConfigRifa(db, dados = {}) {
     const ehPublica = !regRifa || regRifa.ativa === 1;
 
     if (ehPublica) {
-      if (novoTotal < cfgPublica.total && !dados.forcar) {
-        const ocupadasAcima = db
-          .prepare("SELECT COUNT(*) AS c FROM numeros WHERE numero > ? AND status <> 'DISPONIVEL'")
-          .get(novoTotal).c;
-        if (ocupadasAcima > 0) {
+      if (novoTotal < cfgPublica.total) {
+        const maxOcupadoRow = db
+          .prepare("SELECT MAX(numero) AS maxNum FROM numeros WHERE status <> 'DISPONIVEL'")
+          .get();
+        const maxOcupado = maxOcupadoRow && maxOcupadoRow.maxNum ? Number(maxOcupadoRow.maxNum) : 0;
+        if (maxOcupado > 0 && novoTotal < maxOcupado) {
           return {
             _rollback: true,
             ok: false,
             codigo: 'COTAS_OCUPADAS_ACIMA',
-            erro: `Existem ${ocupadasAcima} cota(s) reservadas/pagas acima do número ${pad(novoTotal)}. Para diminuir a grade, libere-as antes ou crie uma nova rifa.`,
+            erro: `Não é possível reduzir a quantidade de cotas para ${novoTotal}, pois a cota ${pad(maxOcupado)} já está reservada ou paga. Para diminuir a grade, libere-a antes ou crie uma nova rifa.`,
           };
         }
       }
@@ -568,14 +580,16 @@ function atualizarConfigRifa(db, dados = {}) {
       cotasSnap = [];
     }
 
-    if (novoTotal < regRifa.total_cotas && !dados.forcar) {
-      const ocupadas = cotasSnap.filter(c => c.numero > novoTotal && c.status !== 'DISPONIVEL').length;
-      if (ocupadas > 0) {
+    if (novoTotal < regRifa.total_cotas) {
+      const maxOcupado = cotasSnap
+        .filter(c => c.status !== 'DISPONIVEL')
+        .reduce((max, c) => Math.max(max, Number(c.numero)), 0);
+      if (maxOcupado > 0 && novoTotal < maxOcupado) {
         return {
           _rollback: true,
           ok: false,
           codigo: 'COTAS_OCUPADAS_ACIMA',
-          erro: `Existem ${ocupadas} cota(s) ocupadas acima do número ${pad(novoTotal)} nesta rifa.`,
+          erro: `Não é possível reduzir a quantidade de cotas para ${novoTotal}, pois a cota ${pad(maxOcupado)} já está reservada ou paga nesta rifa.`,
         };
       }
     }
@@ -912,16 +926,38 @@ function mensagemColisao(numero) {
 }
 
 function extrairListaNumeros(numeroOuLista) {
+  if (numeroOuLista === null || numeroOuLista === undefined) {
+    return { ok: false, lista: [] };
+  }
   const bruta = Array.isArray(numeroOuLista) ? numeroOuLista : [numeroOuLista];
+  if (bruta.length === 0) {
+    return { ok: false, lista: [] };
+  }
   const vistos = new Set();
   const lista = [];
   for (const item of bruta) {
+    if (
+      item === null ||
+      item === undefined ||
+      typeof item === 'boolean' ||
+      Array.isArray(item) ||
+      typeof item === 'object'
+    ) {
+      return { ok: false, lista: [] };
+    }
+    if (typeof item === 'string') {
+      const s = item.trim();
+      if (!/^-?\d+$/.test(s)) {
+        return { ok: false, lista: [] };
+      }
+    }
     const n = Number(item);
     if (!Number.isInteger(n)) return { ok: false, lista: [] };
-    if (!vistos.has(n)) {
-      vistos.add(n);
-      lista.push(n);
+    if (vistos.has(n)) {
+      return { ok: false, lista: [], duplicado: true };
     }
+    vistos.add(n);
+    lista.push(n);
   }
   return { ok: lista.length > 0, lista };
 }
@@ -933,12 +969,15 @@ function extrairListaNumeros(numeroOuLista) {
  */
 function preBloquear(db, numeroOuLista, sessaoId, agora = Date.now()) {
   const totalMax = obterTotalCotas(db);
-  const { ok, lista } = extrairListaNumeros(numeroOuLista);
+  const resLista = extrairListaNumeros(numeroOuLista);
+  const { ok, lista } = resLista;
   if (!ok || lista.some(n => n < 1 || n > totalMax)) {
     return {
       ok: false,
       codigo: 'NUMERO_INVALIDO',
-      erro: `Número inválido (escolha de 01 a ${pad(totalMax)}).`,
+      erro: resLista.duplicado
+        ? 'Cotas repetidas no mesmo pedido.'
+        : `Número inválido (escolha de 01 a ${pad(totalMax)}).`,
     };
   }
   const token = String(sessaoId || '').trim() || `sess_${agora}_${Math.random().toString(36).slice(2, 8)}`;
@@ -1059,9 +1098,14 @@ function cancelarPreBloqueio(db, numeroOuLista, sessaoId) {
  */
 function reservar(db, numeroOuLista, nome, whatsapp, sessaoId = null, agora = Date.now()) {
   const totalMax = obterTotalCotas(db);
-  const { ok, lista } = extrairListaNumeros(numeroOuLista);
+  const resLista = extrairListaNumeros(numeroOuLista);
+  const { ok, lista } = resLista;
   if (!ok || lista.some(n => n < 1 || n > totalMax)) {
-    return { ok: false, codigo: 'NUMERO_INVALIDO', erro: 'Número inválido.' };
+    return {
+      ok: false,
+      codigo: 'NUMERO_INVALIDO',
+      erro: resLista.duplicado ? 'Cotas repetidas no mesmo pedido.' : 'Número inválido.',
+    };
   }
 
   nome = String(nome || '').trim();
@@ -1092,11 +1136,14 @@ function reservar(db, numeroOuLista, nome, whatsapp, sessaoId = null, agora = Da
         return { _rollback: true, ok: false, codigo: 'NUMERO_INVALIDO', erro: 'Número inválido.' };
       }
 
-      const disponivelParaEsteCliente =
-        linha.status === 'DISPONIVEL' ||
-        (linha.status === 'PENDENTE' &&
-          linha.etapa === 'PRE_BLOQUEIO' &&
-          (!linha.sessao_id || !sessaoId || linha.sessao_id === String(sessaoId)));
+      const mesmoPreBloqueio =
+        linha.status === 'PENDENTE' &&
+        linha.etapa === 'PRE_BLOQUEIO' &&
+        Boolean(linha.sessao_id) &&
+        Boolean(sessaoId) &&
+        linha.sessao_id === String(sessaoId).trim();
+
+      const disponivelParaEsteCliente = linha.status === 'DISPONIVEL' || mesmoPreBloqueio;
 
       if (!disponivelParaEsteCliente) {
         return {
@@ -1332,7 +1379,12 @@ function encerrarRifa(db, rifaId = null) {
 
 /** Visão pública: sempre retorna a rifa aberta (ou a última aberta com status encerrada). */
 function listarPublico(db, agora = Date.now(), sessaoIdCliente = null) {
-  expirar(db, agora);
+  const temExpiradas = db
+    .prepare("SELECT 1 FROM numeros WHERE status = 'PENDENTE' AND tempo_limite IS NOT NULL AND tempo_limite <= ? LIMIT 1")
+    .get(agora);
+  if (temExpiradas) {
+    expirar(db, agora);
+  }
   const total = obterTotalCotas(db);
   const linhas = db
     .prepare('SELECT numero, status, etapa, tempo_limite, sessao_id FROM numeros WHERE numero <= ? ORDER BY numero')
@@ -1676,7 +1728,7 @@ async function gerarPlanilhaXLSX(db, agora = Date.now(), rifaId = null, custoKit
     r.height = 19;
 
     const cotaTexto = String(c.numero).padStart(2, '0');
-    const nome = c.nome || c.reservado_por || '-';
+    const nome = c.nome || c.reservado_por ? sanitizarNomeExcel(c.nome || c.reservado_por) : '-';
     const zap = c.whatsapp ? formatarZap(c.whatsapp) : '-';
     const status = c.status;
     const dataReserva = c.data_hora || (c.reservado_em ? formatarDataHora(c.reservado_em) : '-');
@@ -1692,6 +1744,7 @@ async function gerarPlanilhaXLSX(db, agora = Date.now(), rifaId = null, custoKit
     cellCota.value = cotaTexto;
     cellCota.numFmt = '@'; // Forçado como texto para preservar o zero à esquerda
     cellNome.value = nome;
+    cellNome.numFmt = '@'; // Forçado como texto para prevenir injeção de fórmulas
     cellZap.value = zap;
     cellStatus.value = status;
     cellData.value = dataReserva;
@@ -1832,7 +1885,7 @@ function gerarCSV(db, agora = Date.now(), rifaId = null, custoKitInformado = 0) 
   const linhasCotas = cotas.map((c, idx) => {
     const numLinha = linhaInicioCotas + idx;
     const cota = pad(c.numero);
-    const nome = c.nome || c.reservado_por || '';
+    const nome = sanitizarNomeExcel(c.nome || c.reservado_por || '');
     const whatsapp = formatarZap(c.whatsapp);
     const status = c.status;
     const dataHora = c.data_hora || (c.reservado_em ? formatarDataHora(c.reservado_em) : '');

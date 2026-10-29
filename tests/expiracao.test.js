@@ -134,15 +134,22 @@ const srv = app.listen(0, '127.0.0.1', async () => {
     const f2 = await post('/api/admin/login', { usuario: 'admin', senha: 'err2' }, ipBrute);
     assert.equal(f2.status, 401);
     const f3 = await post('/api/admin/login', { usuario: 'admin', senha: 'err3' }, ipBrute);
-    assert.equal(f3.status, 429, '3ª falha deve bloquear por 5 minutos');
+    assert.equal(f3.status, 401, '3ª tentativa com erro deve falhar com 401 e ativar o bloqueio para a próxima');
     const jf3 = await f3.json();
-    assert.equal(jf3.codigo, 'BLOQUEADO_TEMPORARIAMENTE');
-    assert.ok(jf3.segundosRestantes > 290 && jf3.segundosRestantes <= 300);
+    assert.equal(jf3.tentativasRestantes, 0);
+    assert.equal(jf3.bloqueado, true);
+
+    // A partir da 4ª requisição, o sistema deve responder com 429
+    const f4 = await post('/api/admin/login', { usuario: 'admin', senha: 'err4' }, ipBrute);
+    assert.equal(f4.status, 429, '4ª requisição deve responder com 429');
+    const jf4 = await f4.json();
+    assert.equal(jf4.codigo, 'BLOQUEADO_TEMPORARIAMENTE');
+    assert.ok(jf4.segundosRestantes > 290 && jf4.segundosRestantes <= 300);
 
     // Mesmo tentando a senha correta durante o bloqueio, continua 429
-    const f4 = await post('/api/admin/login', { usuario: 'admin', senha: 'churrasco123' }, ipBrute);
-    assert.equal(f4.status, 429);
-    console.log(`  OK: bloqueado após 3 tentativas por ${jf3.segundosRestantes}s.`);
+    const f5 = await post('/api/admin/login', { usuario: 'admin', senha: 'churrasco123' }, ipBrute);
+    assert.equal(f5.status, 429);
+    console.log(`  OK: 3 tentativas falhas com 401 e bloqueio ativado a partir da 4ª requisição com 429 (${jf4.segundosRestantes}s).`);
 
     console.log('== TESTE 7: Login Admin válido, Confirmação, CSV e Restrição de Túnel ==');
     const rLogin = await post(
