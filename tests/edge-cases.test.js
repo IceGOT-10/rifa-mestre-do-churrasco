@@ -12,7 +12,7 @@ const limpar = () => ['', '-wal', '-shm'].forEach(s => fs.rmSync(arqDb + s, { fo
 limpar();
 
 (async () => {
-  const conn = db.abrir(arqDb, { total: 60 });
+  const conn = db.abrir(arqDb, { total: 60, forcarRateLimit: true });
   const app = criarApp(conn, {
     adminUser: 'admin',
     adminPass: 'churrasco123',
@@ -33,6 +33,46 @@ limpar();
   const get = (url, headers = {}) =>
     fetch(base + url, {
       headers,
+    });
+
+  const httpReq = (method, pathUrl, headers = {}, body = null) =>
+    new Promise((resolve, reject) => {
+      const u = new URL(base + pathUrl);
+      const req = require('node:http').request(
+        {
+          hostname: u.hostname,
+          port: u.port,
+          path: u.pathname + u.search,
+          method,
+          headers: {
+            ...headers,
+            ...(body ? { 'Content-Type': 'application/json' } : {}),
+          },
+        },
+        res => {
+          const chunks = [];
+          res.on('data', c => chunks.push(c));
+          res.on('end', () => {
+            const buf = Buffer.concat(chunks);
+            const text = buf.toString('utf8');
+            resolve({
+              status: res.statusCode,
+              headers: {
+                get: name => {
+                  const val = res.headers[name.toLowerCase()];
+                  return Array.isArray(val) ? val.join(', ') : val;
+                },
+              },
+              text: async () => text,
+              json: async () => JSON.parse(text),
+              buffer: async () => buf,
+            });
+          });
+        }
+      );
+      req.on('error', reject);
+      if (body) req.write(typeof body === 'string' ? body : JSON.stringify(body));
+      req.end();
     });
 
   // Login para operações de admin
@@ -372,6 +412,117 @@ limpar();
       );
     }
     console.log('  [PASS] Nomes com (=, +, -, @) devidamente sanitizados contra Formula Injection no XLSX e CSV');
+  }
+
+  // =========================================================================
+  // CENÁRIO 5: Proteção do Admin em Nuvem (Host de Produção e Chave de Acesso)
+  // =========================================================================
+  console.log('\n5. Acesso ao Admin em Ambiente de Hospedagem / Nuvem:');
+  {
+    // 5.1 Host de túnel não autorizado sem permissões especiais é bloqueado com 403
+    const resBloqueado = await httpReq('GET', '/api/admin/sessao', {
+      host: 'tunel-desconhecido.ngrok.io',
+      'x-forwarded-for': '189.40.10.20',
+    });
+    assert.equal(resBloqueado.status, 403, 'Host externo desconhecido deve receber 403');
+
+    // 5.2 Liberação via Host de Produção (ADMIN_ALLOWED_HOSTS)
+    process.env.ADMIN_ALLOWED_HOSTS = 'minharifa.com.br,rifa-oficial.onrender.com';
+    const resHostProd = await httpReq('GET', '/api/admin/sessao', {
+      host: 'minharifa.com.br',
+      'x-forwarded-for': '189.40.10.20',
+    });
+    assert.equal(resHostProd.status, 200, 'Host de produção em ADMIN_ALLOWED_HOSTS deve ter acesso permitido');
+    delete process.env.ADMIN_ALLOWED_HOSTS;
+
+    // 5.3 Liberação via Chave de Acesso (ADMIN_ACCESS_KEY) via header ou query
+    process.env.ADMIN_ACCESS_KEY = 'superSecretKey2026';
+
+    // Sem chave: 403
+    const resSemChave = await httpReq('GET', '/api/admin/sessao', {
+      host: 'qualquer-host.com',
+      'x-forwarded-for': '189.40.10.20',
+    });
+    assert.equal(resSemChave.status, 403, 'Acesso remoto sem chave configurada deve receber 403');
+
+    // Com chave no header: 200
+    const resComChaveHeader = await httpReq('GET', '/api/admin/sessao', {
+      host: 'qualquer-host.com',
+      'x-forwarded-for': '189.40.10.20',
+      'x-admin-key': 'superSecretKey2026',
+    });
+    assert.equal(resComChaveHeader.status, 200, 'Acesso remoto com chave válida no header deve receber 200');
+
+    // Com chave na query: 200 e define cookie rifa_admin_key
+    const resComChaveQuery = await httpReq('GET', '/admin?key=superSecretKey2026', {
+      host: 'qualquer-host.com',
+      'x-forwarded-for': '189.40.10.20',
+    });
+    assert.equal(resComChaveQuery.status, 200, 'Acesso a /admin com query ?key= deve receber 200');
+    const cookieDefinido = resComChaveQuery.headers.get('set-cookie') || '';
+    assert.ok(cookieDefinido.includes('rifa_admin_key='), 'Deve definir cookie rifa_admin_key');
+
+    // Acesso subsequente usando o cookie: 200
+    const resComCookie = await httpReq('GET', '/api/admin/sessao', {
+      host: 'qualquer-host.com',
+      'x-forwarded-for': '189.40.10.20',
+      cookie: 'rifa_admin_key=superSecretKey2026',
+    });
+    assert.equal(resComCookie.status, 200, 'Acesso com cookie de chave deve receber 200');
+
+    delete process.env.ADMIN_ACCESS_KEY;
+
+    // 5.4 Liberação via Flag de Hospedagem (ALLOW_REMOTE_ADMIN=true)
+    process.env.ALLOW_REMOTE_ADMIN = 'true';
+    const resFlagRemota = await httpReq('GET', '/api/admin/sessao', {
+      host: 'meu-servidor-nuvem.com',
+      'x-forwarded-for': '200.150.100.50',
+    });
+    assert.equal(resFlagRemota.status, 200, 'Com ALLOW_REMOTE_ADMIN=true acesso remoto é liberado');
+
+    // 5.5 Segurança Mantida: Autenticação por senha e Rate Limit continuam 100% ativos
+    // Tentativa com senha incorreta via IP remoto
+    const ipNuvem = '177.100.200.55';
+    const resSenhaInvalida = await httpReq(
+      'POST',
+      '/api/admin/login',
+      { host: 'meu-servidor-nuvem.com', 'x-forwarded-for': ipNuvem },
+      { usuario: 'admin', senha: 'senha_errada_nuvem' }
+    );
+    assert.equal(resSenhaInvalida.status, 401, 'Acesso remoto ainda exige senha válida do admin');
+
+    // Mais 2 tentativas inválidas para estourar o rate limit de 3 tentativas
+    await httpReq(
+      'POST',
+      '/api/admin/login',
+      { host: 'meu-servidor-nuvem.com', 'x-forwarded-for': ipNuvem },
+      { usuario: 'admin', senha: 'errada' }
+    );
+    await httpReq(
+      'POST',
+      '/api/admin/login',
+      { host: 'meu-servidor-nuvem.com', 'x-forwarded-for': ipNuvem },
+      { usuario: 'admin', senha: 'errada' }
+    );
+
+    // 4ª tentativa: deve ser bloqueada por rate limit (HTTP 429) mesmo em nuvem!
+    const resBloqNuvem = await httpReq(
+      'POST',
+      '/api/admin/login',
+      { host: 'meu-servidor-nuvem.com', 'x-forwarded-for': ipNuvem },
+      { usuario: 'admin', senha: 'churrasco123' }
+    );
+    assert.equal(resBloqNuvem.status, 429, 'Rate limiting por IP remoto deve bloquear na 4ª tentativa');
+
+    // Requisição protegida sem token continua exigindo 401 NAO_AUTENTICADO
+    const resSemAuth = await httpReq('GET', '/api/admin/pedidos', {
+      host: 'meu-servidor-nuvem.com',
+      'x-forwarded-for': '189.40.10.20',
+    });
+    assert.equal(resSemAuth.status, 401, 'Acesso a endpoints de dados sem token deve retornar 401');
+
+    delete process.env.ALLOW_REMOTE_ADMIN;
+    console.log('  [PASS] Acesso em nuvem liberado via Host e Chave de Ambiente, com Senha e Rate Limit 100% ativos!');
   }
 
   srv.close();

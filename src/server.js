@@ -78,7 +78,7 @@ function criarApp(conn, cfg = {}) {
   }
   app.use(semCache);
 
-  // ---- Guarda de Rede Local para o Admin (bloqueia túneis externos) ----
+  // ---- Guarda de Rede Local / Hospedagem em Nuvem para o Admin ----
   const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
   const HOSTS_LOCAIS = new Set(['localhost', '127.0.0.1', '[::1]']);
   const PROXY_HEADERS = [
@@ -93,18 +93,184 @@ function criarApp(conn, cfg = {}) {
     'ngrok-trace-id',
   ];
 
+  function normalizarHost(h) {
+    return String(h || '')
+      .trim()
+      .replace(/^https?:\/\//, '')
+      .replace(/\/.*$/, '')
+      .replace(/:\d+$/, '')
+      .toLowerCase();
+  }
+
+  function obterHostsProducaoPermitidos() {
+    const lista = [];
+    const envHosts =
+      process.env.ADMIN_ALLOWED_HOSTS ||
+      process.env.ALLOWED_HOSTS ||
+      process.env.PRODUCTION_HOST ||
+      process.env.HOST_PRODUCAO ||
+      process.env.APP_URL ||
+      '';
+
+    for (const h of envHosts.split(',')) {
+      const limpo = normalizarHost(h);
+      if (limpo) lista.push(limpo);
+    }
+    if (process.env.RENDER_EXTERNAL_HOSTNAME) {
+      lista.push(normalizarHost(process.env.RENDER_EXTERNAL_HOSTNAME));
+    }
+    if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+      lista.push(normalizarHost(process.env.RAILWAY_PUBLIC_DOMAIN));
+    }
+    if (process.env.RAILWAY_STATIC_URL) {
+      lista.push(normalizarHost(process.env.RAILWAY_STATIC_URL));
+    }
+    if (process.env.FLY_APP_NAME) {
+      lista.push(normalizarHost(`${process.env.FLY_APP_NAME}.fly.dev`));
+    }
+    if (process.env.VERCEL_URL) {
+      lista.push(normalizarHost(process.env.VERCEL_URL));
+    }
+    if (process.env.HEROKU_APP_NAME) {
+      lista.push(normalizarHost(`${process.env.HEROKU_APP_NAME}.herokuapp.com`));
+    }
+
+    const cfgHosts = cfg.hostsPermitidosAdmin || cfg.hostProducao || cfg.allowedHosts || '';
+    if (Array.isArray(cfgHosts)) {
+      for (const h of cfgHosts) {
+        const limpo = normalizarHost(h);
+        if (limpo) lista.push(limpo);
+      }
+    } else if (typeof cfgHosts === 'string' && cfgHosts) {
+      for (const h of cfgHosts.split(',')) {
+        const limpo = normalizarHost(h);
+        if (limpo) lista.push(limpo);
+      }
+    }
+    return lista;
+  }
+
+  function detectarAmbienteNuvem() {
+    return Boolean(
+      process.env.NODE_ENV === 'production' ||
+      process.env.RENDER === 'true' ||
+      process.env.RENDER === '1' ||
+      process.env.RAILWAY_ENVIRONMENT ||
+      process.env.FLY_APP_NAME ||
+      process.env.HEROKU_APP_NAME ||
+      process.env.DYNO ||
+      process.env.VERCEL === '1' ||
+      process.env.K_SERVICE ||
+      process.env.WEBSITE_INSTANCE_ID ||
+      process.env.AWS_EXECUTION_ENV
+    );
+  }
+
+  function verificarAcessoAdmin(req) {
+    const ipRemoto = req.socket.remoteAddress;
+    const host = normalizarHost(req.headers['x-forwarded-host'] || req.headers.host);
+    const cookies = extrairCookies(req.headers.cookie);
+
+    // 1. Acesso local genuíno (loopback, host local e sem cabeçalhos de túnel externo)
+    const ehLoopback = LOOPBACK.has(ipRemoto);
+    const ehHostLocal = HOSTS_LOCAIS.has(host);
+    const temCabecalhoProxy = PROXY_HEADERS.some(h => req.headers[h] !== undefined);
+    if (ehLoopback && ehHostLocal && !temCabecalhoProxy) {
+      return { autorizado: true, motivo: 'local' };
+    }
+
+    // 2. Chave de acesso em variável de ambiente (ADMIN_ACCESS_KEY / ADMIN_KEY / config)
+    const chaveConfigurada =
+      process.env.ADMIN_ACCESS_KEY ||
+      process.env.ADMIN_KEY ||
+      process.env.ADMIN_SECRET_KEY ||
+      process.env.CHAVE_ACESSO_ADMIN ||
+      cfg.adminAccessKey ||
+      null;
+
+    const chaveFornecida =
+      (req.query && (req.query.key || req.query.adminKey || req.query.admin_key)) ||
+      req.headers['x-admin-key'] ||
+      req.headers['x-access-key'] ||
+      cookies.rifa_admin_key ||
+      null;
+
+    if (chaveConfigurada && chaveFornecida && String(chaveFornecida).trim() === String(chaveConfigurada).trim()) {
+      return { autorizado: true, motivo: 'chave', definirCookieKey: String(chaveFornecida).trim() };
+    }
+
+    // 3. Flag explícita para permitir admin remoto via env ou config
+    const permitirRemoto =
+      process.env.ALLOW_REMOTE_ADMIN === 'true' ||
+      process.env.ALLOW_REMOTE_ADMIN === '1' ||
+      process.env.ADMIN_ALLOW_REMOTE === 'true' ||
+      process.env.PERMITIR_ADMIN_REMOTO === 'true' ||
+      cfg.permitirAdminRemoto === true;
+
+    if (permitirRemoto) {
+      return { autorizado: true, motivo: 'flag_remota' };
+    }
+
+    // 4. Reconhecimento de host de produção configurado
+    const hostsPermitidos = obterHostsProducaoPermitidos();
+    if (hostsPermitidos.length > 0) {
+      const matchHost = hostsPermitidos.some(h => {
+        if (h.startsWith('*.')) {
+          const dom = h.slice(2);
+          return host === dom || host.endsWith('.' + dom);
+        }
+        return host === h;
+      });
+      if (matchHost) {
+        return { autorizado: true, motivo: 'host_producao' };
+      }
+    }
+
+    // 5. Ambiente em nuvem detectado (Render, Railway, Fly.io, Vercel, Heroku, etc.)
+    const emNuvem = detectarAmbienteNuvem();
+    if (emNuvem) {
+      const dominiosCloud = [
+        '.onrender.com',
+        '.railway.app',
+        '.up.railway.app',
+        '.fly.dev',
+        '.herokuapp.com',
+        '.vercel.app',
+        '.appspot.com',
+      ];
+      const ehDominioCloud = dominiosCloud.some(d => host.endsWith(d));
+
+      if (ehDominioCloud || (!chaveConfigurada && hostsPermitidos.length === 0)) {
+        return { autorizado: true, motivo: 'nuvem' };
+      }
+    }
+
+    return { autorizado: false, motivo: 'bloqueado' };
+  }
+
   function somenteLocal(req, res, next) {
-    const host = String(req.headers.host || '').replace(/:\d+$/, '').toLowerCase();
-    const ok =
-      LOOPBACK.has(req.socket.remoteAddress) &&
-      HOSTS_LOCAIS.has(host) &&
-      !PROXY_HEADERS.some(h => req.headers[h] !== undefined);
-    if (!ok) return res.status(403).type('text').send('Acesso restrito ao computador local.');
+    const check = verificarAcessoAdmin(req);
+    if (!check.autorizado) {
+      return res.status(403).type('text').send('Acesso restrito ao computador local.');
+    }
+    if (check.definirCookieKey) {
+      res.setHeader(
+        'Set-Cookie',
+        `rifa_admin_key=${encodeURIComponent(check.definirCookieKey)}; Path=/; HttpOnly; SameSite=Lax`
+      );
+    }
     next();
   }
 
   function obterIpCliente(req) {
-    return String(req.headers['x-client-id'] || req.socket.remoteAddress || '127.0.0.1');
+    if (req.headers['x-client-id']) return String(req.headers['x-client-id']).trim();
+    const cfIp = req.headers['cf-connecting-ip'];
+    if (cfIp) return String(cfIp).trim();
+    const xff = req.headers['x-forwarded-for'];
+    if (xff) return String(xff).split(',')[0].trim();
+    const xReal = req.headers['x-real-ip'];
+    if (xReal) return String(xReal).trim();
+    return String(req.socket.remoteAddress || '127.0.0.1');
   }
 
   function extrairTokenAdmin(req) {
