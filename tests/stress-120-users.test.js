@@ -216,3 +216,4 @@ limpar();
   try { limpar(); } catch (_) {}
   process.exit(1);
 });
+
