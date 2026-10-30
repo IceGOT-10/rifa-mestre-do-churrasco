@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -15,33 +15,35 @@
   <link
     href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=3.1.0">
+  <link rel="stylesheet" href="style.css?v=3.3.0">
 </head>
 
 <body>
-  <header class="topo">
-    <p class="selo" id="marca">Mestre do Churrasco • Rifas</p>
-    <h1 id="titulo" aria-live="polite">Carregando sorteio…</h1>
-    <p class="sub" id="sub">Toque em um ou mais números livres para selecionar seus pontos e prosseguir.</p>
-  </header>
+  <div class="container app">
+    <header class="topo">
+      <p class="selo" id="marca">Mestre do Churrasco • Rifas</p>
+      <h1 id="titulo" aria-live="polite">Carregando sorteio…</h1>
+      <p class="sub" id="sub">Toque em um ou mais números livres para selecionar seus pontos e prosseguir.</p>
+    </header>
 
-  <main>
-    <div id="banner-encerrada" class="banner-encerrada" role="status" hidden>
-      🔒 <strong>Rifa Encerrada!</strong> As reservas estão travadas permanentemente. Acompanhe o resultado com a organização.
-    </div>
+    <main>
+      <div id="banner-encerrada" class="banner-encerrada" role="status" hidden>
+        🔒 <strong>Rifa Encerrada!</strong> As reservas estão travadas permanentemente. Acompanhe o resultado com a organização.
+      </div>
 
-    <div id="alerta-colisao" class="alerta-colisao" role="alert" hidden></div>
+      <div id="alerta-colisao" class="alerta-colisao" role="alert" hidden></div>
 
-    <ul class="legenda" aria-label="Legenda de estados da grade">
-      <li><span class="dot livre"></span>Livre <b id="c-livre">–</b></li>
-      <li><span class="dot sel"></span>Selecionado <b id="c-sel">0</b></li>
-      <li><span class="dot pend"></span>Reservado (Pendente) <b id="c-pend">–</b></li>
-      <li><span class="dot pago"></span>Pago (Confirmado) <b id="c-pago">–</b></li>
-    </ul>
+      <ul class="legenda" aria-label="Legenda de estados da grade">
+        <li><span class="dot livre"></span>Livre <b id="c-livre">–</b></li>
+        <li><span class="dot sel"></span>Selecionado <b id="c-sel">0</b></li>
+        <li><span class="dot pend"></span>Reservado (Pendente) <b id="c-pend">–</b></li>
+        <li><span class="dot pago"></span>Pago (Confirmado) <b id="c-pago">–</b></li>
+      </ul>
 
-    <section id="grade" class="grade" aria-label="Grade de números da rifa" aria-live="polite"></section>
-    <p class="rodape" id="status-rede">Sincronizando grade em tempo real…</p>
-  </main>
+      <section id="grade" class="grade" aria-label="Grade de números da rifa" aria-live="polite"></section>
+      <p class="rodape" id="status-rede">Sincronizando grade em tempo real…</p>
+    </main>
+  </div>
 
   <!-- Barra flutuante para prosseguir com 1 ou múltiplos pontos selecionados -->
   <aside id="barra-selecao" class="barra-selecao" aria-live="polite" hidden>
